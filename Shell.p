@@ -1,1 +1,409 @@
-unit Shell;interface	uses		Sound, Globals, Tools, Game, PowerShell,GameTools,		Dialogs, ToolUtils, TextUtils, Resources, Devices, Menus ,DiskInit;	procedure DoShell;implementation	procedure SetControls;		var			CtrlDialog: DialogPtr;			RedRect:Rect;			response:integer;		procedure SetKey (var KeyCode: integer; StringID: integer; Ditem: integer);			var				i: integer;				HiliteHandle: Handle;				KeyTouch: eventRecord;				Scan: packed array[1..128] of boolean;				CurrPort: Grafptr;				SaveString: stringhandle;				ScanString: Str255;			function ScanTest (Scan: integer; var Charcode: string): boolean;				var					theStr: str255;			begin				ScanTest := false;				GetIndString(theStr, 3000, Scan);				if theStr <> '' then					ScanTest := true;				Charcode := theStr;			end;		begin			GetPort(CurrPort);			SetPort(CtrlDialog);			GetDialogItem(ctrlDialog, response, i, HiliteHandle, RedRect);			InsetRect(RedRect, -4, -4);			PenSize(2, 2);			Forecolor(redcolor);			FrameRect(RedRect);			repeat				GetKeys(KeyMap(Scan));				for i := 1 to 128 do					begin						if Scan[i] then							begin								KeyCode := i;								if not ScanTest(i, ScanString) then									if GetNextEvent($0008, KeyTouch) then										begin											ScanString := CHR(BAND(KeyTouch.Message, 255));											UpperString(Scanstring, FALSE);										end									else										ScanString := chr($14);								SaveString := GetString(StringID);								SetString(SaveString, ScanString);								Forecolor(whitecolor);								FrameRect(RedRect);								Forecolor(blackcolor);								GetDialogItem(ctrlDialog, Ditem, i, HiliteHandle, RedRect);								SetDialogItemText(HiliteHandle, ScanString);								SetPort(CurrPort);								FlushEvents(everyEvent, 0);								Exit(SetKey);							end;					end;			until false;		end;	begin		CtrlDialog := GetNewDialog(2001, nil, Pointer(-1));		DoError(SetDialogDefaultItem(CtrlDialog, 1));		DoError(SetDialogCancelItem(CtrlDialog, 2));				ParamText(GetString(11000)^^, GetString(11001)^^, GetString(11002)^^, GetString(11003)^^);		repeat			ModalDialog(nil, response);			case response of				3: 					SetKey(GameKeys^^.LCode, 11000, 9);				4: 					SetKey(GameKeys^^.RCode, 11001, 10);				5: 					SetKey(GameKeys^^.AccCode, 11002, 11);				6: 					SetKey(GameKeys^^.BrakCode, 11003, 12);			end;			ParamText(GetString(11000)^^, GetString(11001)^^, GetString(11002)^^, GetString(11003)^^);		until (response = 1) or (response = 2);		if response = 1 then			begin				ChangedResource(Handle(GameKeys));				ChangedResource(GetResource('STR ',11000));				ChangedResource(GetResource('STR ',11001));				ChangedResource(GetResource('STR ',11002));				ChangedResource(GetResource('STR ',11003));				if (ResError = noErr) then begin					WriteResource(Handle(GameKeys));					WriteResource(GetResource('STR ',11000));					WriteResource(GetResource('STR ',11001));					WriteResource(GetResource('STR ',11002));					WriteResource(GetResource('STR ',11003));								end else					DoError(ResError);			end		else begin			ReleaseResource(Handle(GameKeys));			ReleaseResource(GetResource('STR ',11000));			ReleaseResource(GetResource('STR ',11001));			ReleaseResource(GetResource('STR ',11002));			ReleaseResource(GetResource('STR ',11003));			Handle(GameKeys):=Getresource('CTLS',1000);		end;		DisposeDialog(CtrlDialog);		response := 0;	end;	procedure Prefs;		var			PrefDialog: DialogPtr;			ItemData: Handle;			Hit,iType: integer;			ignore:Rect;	begin		PrefDialog := GetNewDialog(2000, nil, Pointer(-1));		DoError(SetDialogDefaultItem(PrefDialog, 1));		DoError(SetDialogCancelItem(PrefDialog, 2));		GetDialogItem(PrefDialog, 3, iType, ItemData, ignore);		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 1)));		if BitTst(@GamePrefs^^.GrafFlags, 3) then			begin				GetDialogItem(PrefDialog, 6, iType, ItemData, ignore);				SetControlValue(ControlHandle(ItemData), 1);			end;								GetDialogItem(PrefDialog, 8, iType, ItemData, ignore);		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,4)));		if SoundDisable then 			HiliteControl(ControlHandle(ItemData),255);		GetDialogItem(PrefDialog, 11, iType, ItemData, ignore);		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,5)));		if SoundDisable then 			HiliteControl(ControlHandle(ItemData),255);		GetDialogItem(PrefDialog, 10, iType, ItemData, ignore);		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,6)));		repeat			ModalDialog(nil, Hit);			case Hit of				3: 					begin						GetDialogItem(PrefDialog, 3, iType, ItemData, ignore);						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $4000);						SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 1)));					end;				6: 					begin						GetDialogItem(PrefDialog, 6, iType, ItemData, ignore);						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $1000);						SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 3)));					end;				8: 					begin						GetDialogItem(PrefDialog, 8, iType, ItemData, ignore);						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0800);						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 4)));					end;				10:					begin						GetDialogItem(PrefDialog, 10, iType, ItemData, ignore);						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0200);						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 6)));					end;				11: 					begin						GetDialogItem(PrefDialog, 11, iType, ItemData, ignore);						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0400);						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 5)));					end;									7:					SetControls;			end;		until (Hit = 1) or (Hit = 2) ;		if Hit=1 then 			begin				ChangedResource(Handle(GamePrefs));				if (ResError = noErr) then					WriteResource(Handle(GamePrefs))				else					DoError(ResError);				InitSound;			end		else begin			ReleaseResource(Handle(GamePrefs));			Handle(GamePrefs):=GetResource('SETT',1000);		end;		DisposeDialog(PrefDialog);	end;	function LevelSelect: integer;		var			ChooseDlog: DialogPtr;			ItemData: Handle;			ChooseString: Str255;			ignore:Rect;			response:longint;			Hit:integer;	begin		LevelSelect := 1;		ChooseDlog := GetNewDialog(2002, nil, Pointer(-1));		repeat			ModalDialog(nil, Hit);		until (Hit = 2) or (Hit = 1);		if Hit = 1 then			begin				GetDialogItem(ChooseDlog, 3, Hit, ItemData, ignore);				GetDialogItemText(ItemData, Choosestring);				StringToNum(Choosestring, response);				LevelSelect := response;			end;		DisposeDialog(ChooseDlog);		Cheater:=true;	end;	procedure KillScores;		var			i:integer;	begin		if Alert(1009,nil)=2 then			for i:=1 to 10 do				begin					ScoreHandle(GetResource('HIGH',127+i))^^.Score:=ScoreHandle(GetResource('HIGH',1000))^^.Score;					ScoreHandle(GetResource('HIGH',127+i))^^.Name:=ScoreHandle(GetResource('HIGH',1000))^^.Name;					ChangedResource(GetResource('HIGH',127+i));					WriteResource(GetResource('HIGH',127+i));				end;	end;	procedure DoShell;		var			MyEvent: EventRecord;			Hit, ClickReply: Integer;			WhichWindow: WindowPtr;			Pressed: char;			response:longint;		procedure DoMenu (Menu, Item: integer);			var				DAName: Str255;		begin			case Menu of				1000: 					case Item of						1: 							PSAbout;						otherwise							begin								GetMenuItemText(Applemenu, Item, DAName);								response := OpenDeskAcc(DaName);							end;					end;				1001: 					case Item of						1: 							begin								Level := 1;								Cheater:=False;								if BitTst(@MyEvent.modifiers, 4) then									Level := Levelselect;								BeginGame;							end;						2: 							EndGame;						4:							begin 								GamePause:= not GamePause;								if GamePause then									ShowMenuBar								else if BitTst(@GamePrefs^^.GrafFlags,1) then									HideMenuBar;							end;						6: 							Quit;					end;				1002: 					case Item of						1: 							Prefs;						2: 							SetControls;						4:							DisplayScores;						5:							KillScores;						7:							PSHelp;					end;			end;			HiliteMenu(0);		end;	begin		if Gameplay then			ObscureCursor;		if FreeMem<$10000 then			FreeSpriteMem($30000);		if WaitNextEvent(everyEvent, MyEvent, 0, nil) then			begin				case MyEvent.what of					MouseDown: 						begin							Hit := FindWindow(MyEvent.Where, WhichWindow);							case Hit of								InMenuBar: 									begin										response := MenuSelect(MyEvent.where);										DoMenu(HiWord(response), LoWord(response));									end;								inDrag: 									DragWindow(WhichWindow, MyEvent.Where, TheScreen^^.GdPMap^^.bounds);								inSysWindow: 									SystemClick(MyEvent, WhichWindow);								inContent:									if WhichWindow = ShellWindow then										begin											GlobalToLocal(MyEvent.where);											HandlePSClick(MyEvent.where, ClickReply);											case ClickReply of 												1:													begin														Level := 1;														if BitTst(@MyEvent.modifiers, 4) then															Level := Levelselect;														BeginGame;													end;												2:													Prefs;												3:													Quit;											end;										end;							end;						end;					KeyDown: 						begin							Pressed := CHR(BAND(MyEvent.Message, charCodeMask));							if BitTst(@MyEvent.modifiers, 7) then								begin									response := MenuKey(Pressed);									DoMenu(HiWord(response), LoWord(response));								end;						end;											UpdateEvt:						if WindowPtr(MyEvent.message) = ShellWindow then							PSUpdate						else						if WindowPtr(MyEvent.message) = RaceWindow then							GameUpdate;					DiskEvt:						if HiWord(MyEvent.message) <> NoErr then							begin								DILoad;								DoError(DIBadMount(Point($00640064), MyEvent.message));								DIUnLoad;							end;					OSEvt:						if GamePlay then							if BitShift(BAND(MyEvent.message,OSEvtMessageMask),-24)=suspendResumeMessage then								if BAND(MyEvent.message,resumeflag)=0 then									begin 										GamePause:=True; 										if BitTst(@GamePrefs^^.GrafFlags,1) then											ShowMenuBar;									end;				end;			end;	end;end.
+unit Shell;
+interface
+	uses
+		Sound, Globals, Tools, Game, PowerShell,GameTools,
+		Dialogs, ToolUtils, TextUtils, Resources, Devices, Menus ,DiskInit;
+	procedure DoShell;
+implementation
+
+
+	procedure SetControls;
+		var
+			CtrlDialog: DialogPtr;
+			RedRect:Rect;
+			response:integer;
+		procedure SetKey (var KeyCode: integer; StringID: integer; Ditem: integer);
+			var
+				i: integer;
+				HiliteHandle: Handle;
+				KeyTouch: eventRecord;
+				Scan: packed array[1..128] of boolean;
+				CurrPort: Grafptr;
+				SaveString: stringhandle;
+				ScanString: Str255;
+			function ScanTest (Scan: integer; var Charcode: string): boolean;
+				var
+					theStr: str255;
+			begin
+				ScanTest := false;
+				GetIndString(theStr, 3000, Scan);
+				if theStr <> '' then
+					ScanTest := true;
+				Charcode := theStr;
+			end;
+
+		begin
+			GetPort(CurrPort);
+			SetPort(CtrlDialog);
+			GetDialogItem(ctrlDialog, response, i, HiliteHandle, RedRect);
+			InsetRect(RedRect, -4, -4);
+			PenSize(2, 2);
+			Forecolor(redcolor);
+			FrameRect(RedRect);
+			repeat
+				GetKeys(KeyMap(Scan));
+				for i := 1 to 128 do
+					begin
+						if Scan[i] then
+							begin
+								KeyCode := i;
+								if not ScanTest(i, ScanString) then
+									if GetNextEvent($0008, KeyTouch) then
+										begin
+											ScanString := CHR(BAND(KeyTouch.Message, 255));
+											UpperString(Scanstring, FALSE);
+										end
+									else
+										ScanString := chr($14);
+
+
+								SaveString := GetString(StringID);
+								SetString(SaveString, ScanString);
+
+
+								Forecolor(whitecolor);
+								FrameRect(RedRect);
+								Forecolor(blackcolor);
+								GetDialogItem(ctrlDialog, Ditem, i, HiliteHandle, RedRect);
+								SetDialogItemText(HiliteHandle, ScanString);
+								SetPort(CurrPort);
+								FlushEvents(everyEvent, 0);
+								Exit(SetKey);
+							end;
+					end;
+			until false;
+		end;
+
+	begin
+		CtrlDialog := GetNewDialog(2001, nil, Pointer(-1));
+		DoError(SetDialogDefaultItem(CtrlDialog, 1));
+		DoError(SetDialogCancelItem(CtrlDialog, 2));
+		
+		ParamText(GetString(11000)^^, GetString(11001)^^, GetString(11002)^^, GetString(11003)^^);
+		repeat
+			ModalDialog(nil, response);
+			case response of
+				3: 
+					SetKey(GameKeys^^.LCode, 11000, 9);
+				4: 
+					SetKey(GameKeys^^.RCode, 11001, 10);
+				5: 
+					SetKey(GameKeys^^.AccCode, 11002, 11);
+				6: 
+					SetKey(GameKeys^^.BrakCode, 11003, 12);
+			end;
+			ParamText(GetString(11000)^^, GetString(11001)^^, GetString(11002)^^, GetString(11003)^^);
+		until (response = 1) or (response = 2);
+		if response = 1 then
+			begin
+				ChangedResource(Handle(GameKeys));
+				ChangedResource(GetResource('STR ',11000));
+				ChangedResource(GetResource('STR ',11001));
+				ChangedResource(GetResource('STR ',11002));
+				ChangedResource(GetResource('STR ',11003));
+				if (ResError = noErr) then begin
+					WriteResource(Handle(GameKeys));
+					WriteResource(GetResource('STR ',11000));
+					WriteResource(GetResource('STR ',11001));
+					WriteResource(GetResource('STR ',11002));
+					WriteResource(GetResource('STR ',11003));				
+				end else
+					DoError(ResError);
+			end
+		else begin
+			ReleaseResource(Handle(GameKeys));
+			ReleaseResource(GetResource('STR ',11000));
+			ReleaseResource(GetResource('STR ',11001));
+			ReleaseResource(GetResource('STR ',11002));
+			ReleaseResource(GetResource('STR ',11003));
+			Handle(GameKeys):=Getresource('CTLS',1000);
+		end;
+		DisposeDialog(CtrlDialog);
+		response := 0;
+	end;
+
+
+
+
+
+	procedure Prefs;
+		var
+			PrefDialog: DialogPtr;
+			ItemData: Handle;
+			Hit,iType: integer;
+			ignore:Rect;
+	begin
+
+		PrefDialog := GetNewDialog(2000, nil, Pointer(-1));
+
+		DoError(SetDialogDefaultItem(PrefDialog, 1));
+		DoError(SetDialogCancelItem(PrefDialog, 2));
+
+		GetDialogItem(PrefDialog, 3, iType, ItemData, ignore);
+		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 1)));
+
+		if BitTst(@GamePrefs^^.GrafFlags, 3) then
+			begin
+				GetDialogItem(PrefDialog, 6, iType, ItemData, ignore);
+				SetControlValue(ControlHandle(ItemData), 1);
+			end;
+			
+			
+		GetDialogItem(PrefDialog, 8, iType, ItemData, ignore);
+		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,4)));
+		if SoundDisable then 
+			HiliteControl(ControlHandle(ItemData),255);
+
+
+		GetDialogItem(PrefDialog, 11, iType, ItemData, ignore);
+		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,5)));
+		if SoundDisable then 
+			HiliteControl(ControlHandle(ItemData),255);
+
+
+		GetDialogItem(PrefDialog, 10, iType, ItemData, ignore);
+		SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags,6)));
+
+		repeat
+			ModalDialog(nil, Hit);
+			case Hit of
+				3: 
+					begin
+						GetDialogItem(PrefDialog, 3, iType, ItemData, ignore);
+						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $4000);
+						SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 1)));
+					end;
+				6: 
+					begin
+						GetDialogItem(PrefDialog, 6, iType, ItemData, ignore);
+						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $1000);
+						SetControlValue(ControlHandle(ItemData), integer(BitTst(@GamePrefs^^.GrafFlags, 3)));
+					end;
+				8: 
+					begin
+						GetDialogItem(PrefDialog, 8, iType, ItemData, ignore);
+						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0800);
+						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 4)));
+					end;
+				10:
+					begin
+						GetDialogItem(PrefDialog, 10, iType, ItemData, ignore);
+						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0200);
+						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 6)));
+					end;
+				11: 
+					begin
+						GetDialogItem(PrefDialog, 11, iType, ItemData, ignore);
+						GamePrefs^^.GrafFlags := BitXor(GamePrefs^^.GrafFlags, $0400);
+						SetControlValue(ControlHandle(ItemData),integer(BitTst(@GamePrefs^^.GrafFlags, 5)));
+					end;
+					
+				7:
+					SetControls;
+			end;
+		until (Hit = 1) or (Hit = 2) ;
+		if Hit=1 then 
+			begin
+				ChangedResource(Handle(GamePrefs));
+				if (ResError = noErr) then
+					WriteResource(Handle(GamePrefs))
+				else
+					DoError(ResError);
+				InitSound;
+			end
+		else begin
+			ReleaseResource(Handle(GamePrefs));
+			Handle(GamePrefs):=GetResource('SETT',1000);
+		end;
+		DisposeDialog(PrefDialog);
+	end;
+
+
+
+
+	function LevelSelect: integer;
+		var
+			ChooseDlog: DialogPtr;
+			ItemData: Handle;
+			ChooseString: Str255;
+			ignore:Rect;
+			response:longint;
+			Hit:integer;
+	begin
+		LevelSelect := 1;
+		ChooseDlog := GetNewDialog(2002, nil, Pointer(-1));
+		repeat
+			ModalDialog(nil, Hit);
+		until (Hit = 2) or (Hit = 1);
+		if Hit = 1 then
+			begin
+				GetDialogItem(ChooseDlog, 3, Hit, ItemData, ignore);
+				GetDialogItemText(ItemData, Choosestring);
+				StringToNum(Choosestring, response);
+				LevelSelect := response;
+			end;
+		DisposeDialog(ChooseDlog);
+		Cheater:=true;
+	end;
+
+
+
+	procedure KillScores;
+		var
+			i:integer;
+	begin
+		if Alert(1009,nil)=2 then
+			for i:=1 to 10 do
+				begin
+					ScoreHandle(GetResource('HIGH',127+i))^^.Score:=ScoreHandle(GetResource('HIGH',1000))^^.Score;
+					ScoreHandle(GetResource('HIGH',127+i))^^.Name:=ScoreHandle(GetResource('HIGH',1000))^^.Name;
+					ChangedResource(GetResource('HIGH',127+i));
+					WriteResource(GetResource('HIGH',127+i));
+				end;
+	end;
+
+
+
+	procedure DoShell;
+		var
+			MyEvent: EventRecord;
+			Hit, ClickReply: Integer;
+			WhichWindow: WindowPtr;
+			Pressed: char;
+			response:longint;
+		procedure DoMenu (Menu, Item: integer);
+			var
+				DAName: Str255;
+		begin
+			case Menu of
+				1000: 
+					case Item of
+						1: 
+							PSAbout;
+						otherwise
+							begin
+								GetMenuItemText(Applemenu, Item, DAName);
+								response := OpenDeskAcc(DaName);
+							end;
+					end;
+				1001: 
+					case Item of
+						1: 
+							begin
+								Level := 1;
+								Cheater:=False;
+								if BitTst(@MyEvent.modifiers, 4) then
+									Level := Levelselect;
+								BeginGame;
+							end;
+						2: 
+							EndGame;
+						4:
+							begin 
+								GamePause:= not GamePause;
+								if GamePause then
+									ShowMenuBar
+								else if BitTst(@GamePrefs^^.GrafFlags,1) then
+									HideMenuBar;
+							end;
+						6: 
+							Quit;
+					end;
+				1002: 
+					case Item of
+						1: 
+							Prefs;
+						2: 
+							SetControls;
+						4:
+							DisplayScores;
+						5:
+							KillScores;
+						7:
+							PSHelp;
+					end;
+			end;
+			HiliteMenu(0);
+		end;
+
+
+	begin
+		if Gameplay then
+			ObscureCursor;
+		if FreeMem<$10000 then
+			FreeSpriteMem($30000);
+		if WaitNextEvent(everyEvent, MyEvent, 0, nil) then
+			begin
+				case MyEvent.what of
+					MouseDown: 
+						begin
+							Hit := FindWindow(MyEvent.Where, WhichWindow);
+							case Hit of
+								InMenuBar: 
+									begin
+										response := MenuSelect(MyEvent.where);
+										DoMenu(HiWord(response), LoWord(response));
+									end;
+								inDrag: 
+									DragWindow(WhichWindow, MyEvent.Where, TheScreen^^.GdPMap^^.bounds);
+								inSysWindow: 
+									SystemClick(MyEvent, WhichWindow);
+								inContent:
+									if WhichWindow = ShellWindow then
+										begin
+											GlobalToLocal(MyEvent.where);
+											HandlePSClick(MyEvent.where, ClickReply);
+											case ClickReply of 
+												1:
+													begin
+														Level := 1;
+														if BitTst(@MyEvent.modifiers, 4) then
+															Level := Levelselect;
+														BeginGame;
+													end;
+												2:
+													Prefs;
+												3:
+													Quit;
+											end;
+										end;
+							end;
+						end;
+
+					KeyDown: 
+						begin
+							Pressed := CHR(BAND(MyEvent.Message, charCodeMask));
+							if BitTst(@MyEvent.modifiers, 7) then
+								begin
+									response := MenuKey(Pressed);
+									DoMenu(HiWord(response), LoWord(response));
+								end;
+						end;
+						
+					UpdateEvt:
+						if WindowPtr(MyEvent.message) = ShellWindow then
+							PSUpdate
+						else
+						if WindowPtr(MyEvent.message) = RaceWindow then
+							GameUpdate;
+
+					DiskEvt:
+						if HiWord(MyEvent.message) <> NoErr then
+							begin
+								DILoad;
+								DoError(DIBadMount(Point($00640064), MyEvent.message));
+								DIUnLoad;
+							end;
+					OSEvt:
+						if GamePlay then
+							if BitShift(BAND(MyEvent.message,OSEvtMessageMask),-24)=suspendResumeMessage then
+								if BAND(MyEvent.message,resumeflag)=0 then
+									begin 
+										GamePause:=True; 
+										if BitTst(@GamePrefs^^.GrafFlags,1) then
+											ShowMenuBar;
+									end;
+				end;
+			end;
+	end;
+end.

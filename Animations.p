@@ -1,1 +1,133 @@
-unit animations;interface	uses		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools,		 Dialogs,ToolUtils,QDOffScreen,Resources, Palettes;	procedure Animate (ID: integer; where: Rect);	procedure DoAnimations;implementation	procedure DoPolice;	begin		PlaySound(1208);		KillEngine;		UnlockPixels(GetGWorldPixMap(Screenworld));		SetGDevice(TheScreen);		SetGworld(CGrafPtr(Racewindow),TheScreen);		if Alert(1004, nil) = 1 then			begin				Score := Score - 500;				if Score < 0 then					Score := 0;				DrawInstr;			end		else			if random >10000 then				begin					Dead := true;					PlaySound(1207);					Animate(1002,CarRect);				end;		SetGworld(ScreenWorld, nil);		if not LockPixels(GetGworldPixMap(ScreenWorld)) then			DoError(QDError);		if BitTst(@GamePrefs^^.GrafFlags,1) then			ReHideMenuBar;		LKey := False;		RKey := False;		Brakkey := False;		AccKey := false;		UDSpeed := 0;		LRSpeed := 0;	end;	procedure Animate (ID: integer; where: Rect);		type			FrameList = record					Scroll: Boolean;					Sound: integer;					Frames: array[1..10] of integer;				end;			FramePtr = ^FrameList;			FrameHandle = ^FramePtr;		var			i: integer;	begin		if ID <> 1 then			for i := 1 to 10 do				begin					if Animations[i].on = False then						begin							if ID = 0 then								if BitTst(@MyRoad^^.Flags, 0) then									ID := 1020								else									ID := 1021;							Animations[i].On := True;							Animations[i].Frame := 1;							Animations[i].Pos := where;							Animations[i].Data := GetResource('ANIM', ID);							PlaySound(FrameHandle(Animations[i].Data)^^.Sound);							Exit(Animate);						end;				end		else			DoPolice;	end;					procedure DoAnimations;		label			1;		type			FrameList = record					Scroll: Boolean;					Sound: integer;					Frames: array[1..30] of integer;				end;			FramePtr = ^FrameList;			FrameHandle = ^FramePtr;		var			i: integer;	begin		StandartCLUT:=TRUE;		for i := 1 to 10 do		if Animations[i].on = true then			begin			1:				if Animations[i].Frame < (GetHandleSize(Animations[i].Data) - 4) div 2 then					begin						if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame]< 1000 then							begin								if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame] = -1 then									SetCLUT;								if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame] = 0 then									RemoveBlood(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame+1])								else									ScreenBlood(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame+1],BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],0),BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],1),BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],2));								Animations[i].Frame := Animations[i].Frame + 2;								goto 1;							end;						PlotSprite(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame], Animations[i].Pos);						OffsetRect(Animations[i].Pos, 0, UDSpeed);					end				else					begin						Animations[i].on := False;						ReleaseResource(Animations[i].data);					end;				Animations[i].Frame := Animations[i].Frame + 1;			end;	end;end.
+unit animations;
+interface
+	uses
+		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools,
+		 Dialogs,ToolUtils,QDOffScreen,Resources, Palettes;
+	procedure Animate (ID: integer; where: Rect);
+	procedure DoAnimations;
+implementation
+
+
+
+
+
+	procedure DoPolice;
+	begin
+		PlaySound(1208);
+		KillEngine;
+		UnlockPixels(GetGWorldPixMap(Screenworld));
+		SetGDevice(TheScreen);
+		SetGworld(CGrafPtr(Racewindow),TheScreen);
+		if Alert(1004, nil) = 1 then
+			begin
+				Score := Score - 500;
+				if Score < 0 then
+					Score := 0;
+				DrawInstr;
+			end
+		else
+			if random >10000 then
+				begin
+					Dead := true;
+					PlaySound(1207);
+					Animate(1002,CarRect);
+				end;
+		SetGworld(ScreenWorld, nil);
+		if not LockPixels(GetGworldPixMap(ScreenWorld)) then
+			DoError(QDError);
+		if BitTst(@GamePrefs^^.GrafFlags,1) then
+			ReHideMenuBar;
+		LKey := False;
+		RKey := False;
+		Brakkey := False;
+		AccKey := false;
+		UDSpeed := 0;
+		LRSpeed := 0;
+	end;
+
+
+
+
+	procedure Animate (ID: integer; where: Rect);
+		type
+			FrameList = record
+					Scroll: Boolean;
+					Sound: integer;
+					Frames: array[1..10] of integer;
+				end;
+			FramePtr = ^FrameList;
+			FrameHandle = ^FramePtr;
+		var
+			i: integer;
+	begin
+		if ID <> 1 then
+			for i := 1 to 10 do
+				begin
+					if Animations[i].on = False then
+						begin
+							if ID = 0 then
+								if BitTst(@MyRoad^^.Flags, 0) then
+									ID := 1020
+								else
+									ID := 1021;
+							Animations[i].On := True;
+							Animations[i].Frame := 1;
+							Animations[i].Pos := where;
+							Animations[i].Data := GetResource('ANIM', ID);
+							PlaySound(FrameHandle(Animations[i].Data)^^.Sound);
+							Exit(Animate);
+						end;
+				end
+		else
+			DoPolice;
+	end;
+	
+	
+	
+	
+
+
+	procedure DoAnimations;
+		label
+			1;
+		type
+			FrameList = record
+					Scroll: Boolean;
+					Sound: integer;
+					Frames: array[1..30] of integer;
+				end;
+			FramePtr = ^FrameList;
+			FrameHandle = ^FramePtr;
+		var
+			i: integer;
+	begin
+		StandartCLUT:=TRUE;
+		for i := 1 to 10 do
+		if Animations[i].on = true then
+			begin
+			1:
+				if Animations[i].Frame < (GetHandleSize(Animations[i].Data) - 4) div 2 then
+					begin
+						if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame]< 1000 then
+							begin
+								if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame] = -1 then
+									SetCLUT;
+								if FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame] = 0 then
+									RemoveBlood(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame+1])
+								else
+									ScreenBlood(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame+1],BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],0),BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],1),BTST(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame],2));
+								Animations[i].Frame := Animations[i].Frame + 2;
+								goto 1;
+							end;
+						PlotSprite(FrameHandle(Animations[i].data)^^.Frames[Animations[i].Frame], Animations[i].Pos);
+						OffsetRect(Animations[i].Pos, 0, UDSpeed);
+					end
+				else
+					begin
+						Animations[i].on := False;
+						ReleaseResource(Animations[i].data);
+					end;
+				Animations[i].Frame := Animations[i].Frame + 1;
+			end;
+	end;
+end.

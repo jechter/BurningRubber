@@ -1,1 +1,16 @@
-program Race;uses	Shell, PowerShell, Game, Tools;begin	InitProg;	repeat		DoShell;		PowerShell;		DoGame;		DoGame;		DoGame;		DoGame;			DoGame;			DoGame;	until false;end.
+program Race;
+uses
+	Shell, PowerShell, Game, Tools;
+begin
+	InitProg;
+	repeat
+		DoShell;
+		PowerShell;
+		DoGame;
+		DoGame;
+		DoGame;
+		DoGame;	
+		DoGame;	
+		DoGame;
+	until false;
+end.

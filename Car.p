@@ -1,1 +1,165 @@
-unit Car;interface	uses		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools,		 Animations, ToolUtils;	procedure DoCar;implementation	procedure DoCar;	var	 	i:integer;		ResetSucc:boolean;		DeadString:string;	begin		if not Dead  then			begin				Engine(UDSpeed + abs(LRSpeed) div 5);				if Jump <> 0 then					begin						if Jump < MaxJump then							Jump := Jump + 2						else							begin								MaxJump := 0;								Jump := Jump - 2;							end;						if Jump < 0 then							begin								Jump := 0;								CarDirection := CarDirection + random div 14000;								PlaySound(1103);							end;					end;				if (Jump = 0) then					begin						if LKey then							LRSpeed := LRspeed - round(UDSpeed / 50 * MyCar.Steering);						if RKey then							LRSpeed := LRspeed + round(UDSpeed / 50 * MyCar.Steering);						if AccKey and (Wait = 0) then							if UDSpeed>8 then							UDSpeed := UDSpeed + MyCar.Acc							else							UDSpeed := UDSpeed + MyCar.Acc*2;						if BrakKey then							begin								if (UDSpeed > MyCar.Speed * 3 div 4) and not BrakeDone then									PlaySound(1000);								BrakeDone := true;								if UDSpeed>=MyCar.Brakes then									UDSpeed := UDSpeed - MyCar.Brakes;								LrSpeed := LRSpeed div (MyCar.Brakes * 2);							end						else							BrakeDone := False;													if UDSpeed>=1 then								UDSpeed := UDSpeed - abs(random div 12000)						else if UDSpeed<=-1 then								UDSpeed := UDSpeed + abs(random div 12000);						if (DoneCount <> 0) then 							if (UDSpeed >= 5) then 								UDSpeed := UDSpeed - 5							else								UDSpeed:=0;									if UDSpeed > MyCar.Speed  then							UDspeed := MyCar.Speed ;						if abs(LRSpeed) > MyCar.Speed then							LRspeed := MyCar.Speed * sign(LRSpeed);						if LRSpeed <> 0 then							LRSpeed := LRSpeed -1 * sign(LRSpeed);												if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos, 7, i) then							begin								if BitTst(@MyRoad^^.Flags, 0) then									if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos + 16, -16, i) and (DoneCount=0) then										begin											Dead := true;											Animate(MyCar.Crash, CarRect);										end;								if BitTst(@MyRoad^^.Flags, 1) then									if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos + 16, -16, i) and (DoneCount=0) then										begin											Dead := true;											Animate(MyCar.Drawn, CarRect);										end;								if BitTst(@MyRoad^^.Flags, 2) then									begin										if UDSpeed > round(16 * (MyCar.OffRoad / 100)) then											UDSpeed := UDSpeed - MyCar.Acc * 3;										if abs(LRSpeed) > round(8 * (MyCar.OffRoad / 100)) then											LRSpeed := LRSpeed - MyCar.Acc * 3 * LRSpeed div abs(LRSpeed);									end;							end;					end;				scroll := Scroll + UDSpeed div 2;				LRPos := LRPos + LrSpeed;				if UDSpeed <> 0 then					CarDirection := round((LRSpeed / UDSpeed) * 6)  				else 					Cardirection:=0;				if abs(CarDirection) > MyCar.Frames then					CarDirection := MyCar.Frames * sign(CarDirection);				SetRect(CarRect, LRPos, UDPos, LRPos + 32, UDPos + 32);				InsetRect(CarRect, -Jump div 5, -Jump div 5);				if not Dead then					PlotSprite(MyCar.BaseIcon + CarDirection, CarRect);			end		else if dead then			begin				if DeadCount = 0 then					begin						UDSpeed := 0;						LRspeed := 0;						KillEngine;						OldScroll := Scroll;						Lives := Lives - 1;						if Lives = 0 then							GameOver := true;						Deadcount := 20;					end;				if Info^^.Bonus=0 then					begin					GetIndString(DeadString, 2000, 7);					ShowMessage(DeadString, 310 - 100, 180, 36);					Info^^.Bonus:=500;					end;				Deadcount := DeadCount - 1;				if (DeadCount = 0) and not GameOver then					begin						Dead := false;						ResetSucc := false;						if Info^^.Bonus<0 then							Info^^.Bonus:=500;						for i := 15 downto 1 do							if Rebirthes^^[i].SCR < Scroll + GamePrefs^^.Offset then								begin									Scroll := Rebirthes^^[i].SCR;									OldScroll := Scroll - 480 + GamePrefs^^.Offset;									LRPos := Rebirthes^^[i].LRP;									ResetSucc := true;									Leave;								end;						if not ResetSucc then							begin								Scroll := 0;								OldScroll := 0 - 480 - GamePrefs^^.Offset;								LRPos := 310;							end;					end;			end;		if Scroll + GamePrefs^^.Offset div 2 > Info^^.StopAt then			begin				if DoneCount = 0 then					begin						DoneCount := 12;						PlaySound(1104);					end;				DoneCount := DoneCount - 1;				if DoneCount = 0 then					DoneCount := -1;			end;	end;end.
+unit Car;
+interface
+	uses
+		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools,
+		 Animations, ToolUtils;
+	procedure DoCar;
+implementation
+	procedure DoCar;
+	var
+	 	i:integer;
+		ResetSucc:boolean;
+		DeadString:string;
+	begin
+		if not Dead  then
+			begin
+				Engine(UDSpeed + abs(LRSpeed) div 5);
+				if Jump <> 0 then
+					begin
+						if Jump < MaxJump then
+							Jump := Jump + 2
+						else
+							begin
+								MaxJump := 0;
+								Jump := Jump - 2;
+							end;
+						if Jump < 0 then
+							begin
+								Jump := 0;
+								CarDirection := CarDirection + random div 14000;
+								PlaySound(1103);
+							end;
+					end;
+				if (Jump = 0) then
+					begin
+						if LKey then
+							LRSpeed := LRspeed - round(UDSpeed / 50 * MyCar.Steering);
+						if RKey then
+							LRSpeed := LRspeed + round(UDSpeed / 50 * MyCar.Steering);
+						if AccKey and (Wait = 0) then
+							if UDSpeed>8 then
+							UDSpeed := UDSpeed + MyCar.Acc
+							else
+							UDSpeed := UDSpeed + MyCar.Acc*2;
+
+						if BrakKey then
+							begin
+								if (UDSpeed > MyCar.Speed * 3 div 4) and not BrakeDone then
+									PlaySound(1000);
+								BrakeDone := true;
+								if UDSpeed>=MyCar.Brakes then
+									UDSpeed := UDSpeed - MyCar.Brakes;
+								LrSpeed := LRSpeed div (MyCar.Brakes * 2);
+							end
+						else
+							BrakeDone := False;
+							
+						if UDSpeed>=1 then	
+							UDSpeed := UDSpeed - abs(random div 12000)
+						else if UDSpeed<=-1 then	
+							UDSpeed := UDSpeed + abs(random div 12000);
+						if (DoneCount <> 0) then 
+							if (UDSpeed >= 5) then 
+								UDSpeed := UDSpeed - 5
+							else
+								UDSpeed:=0;			
+						if UDSpeed > MyCar.Speed  then
+							UDspeed := MyCar.Speed ;
+						if abs(LRSpeed) > MyCar.Speed then
+							LRspeed := MyCar.Speed * sign(LRSpeed);
+						if LRSpeed <> 0 then
+							LRSpeed := LRSpeed -1 * sign(LRSpeed);
+						
+						if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos, 7, i) then
+							begin
+								if BitTst(@MyRoad^^.Flags, 0) then
+									if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos + 16, -16, i) and (DoneCount=0) then
+										begin
+											Dead := true;
+											Animate(MyCar.Crash, CarRect);
+										end;
+								if BitTst(@MyRoad^^.Flags, 1) then
+									if CheckSect(scroll + GamePrefs^^.Offset div 2, LRpos + 16, -16, i) and (DoneCount=0) then
+										begin
+											Dead := true;
+											Animate(MyCar.Drawn, CarRect);
+										end;
+								if BitTst(@MyRoad^^.Flags, 2) then
+									begin
+										if UDSpeed > round(16 * (MyCar.OffRoad / 100)) then
+											UDSpeed := UDSpeed - MyCar.Acc * 3;
+										if abs(LRSpeed) > round(8 * (MyCar.OffRoad / 100)) then
+											LRSpeed := LRSpeed - MyCar.Acc * 3 * LRSpeed div abs(LRSpeed);
+									end;
+							end;
+					end;
+
+				scroll := Scroll + UDSpeed div 2;
+				LRPos := LRPos + LrSpeed;
+				if UDSpeed <> 0 then
+					CarDirection := round((LRSpeed / UDSpeed) * 6)  
+				else 
+					Cardirection:=0;
+				if abs(CarDirection) > MyCar.Frames then
+					CarDirection := MyCar.Frames * sign(CarDirection);
+				SetRect(CarRect, LRPos, UDPos, LRPos + 32, UDPos + 32);
+				InsetRect(CarRect, -Jump div 5, -Jump div 5);
+				if not Dead then
+					PlotSprite(MyCar.BaseIcon + CarDirection, CarRect);
+			end
+		else if dead then
+			begin
+				if DeadCount = 0 then
+					begin
+						UDSpeed := 0;
+						LRspeed := 0;
+						KillEngine;
+						OldScroll := Scroll;
+						Lives := Lives - 1;
+						if Lives = 0 then
+							GameOver := true;
+						Deadcount := 20;
+					end;
+				if Info^^.Bonus=0 then
+					begin
+					GetIndString(DeadString, 2000, 7);
+					ShowMessage(DeadString, 310 - 100, 180, 36);
+					Info^^.Bonus:=500;
+					end;
+				Deadcount := DeadCount - 1;
+				if (DeadCount = 0) and not GameOver then
+					begin
+						Dead := false;
+						ResetSucc := false;
+						if Info^^.Bonus<0 then
+							Info^^.Bonus:=500;
+						for i := 15 downto 1 do
+							if Rebirthes^^[i].SCR < Scroll + GamePrefs^^.Offset then
+								begin
+									Scroll := Rebirthes^^[i].SCR;
+									OldScroll := Scroll - 480 + GamePrefs^^.Offset;
+									LRPos := Rebirthes^^[i].LRP;
+									ResetSucc := true;
+									Leave;
+								end;
+						if not ResetSucc then
+							begin
+								Scroll := 0;
+								OldScroll := 0 - 480 - GamePrefs^^.Offset;
+								LRPos := 310;
+							end;
+					end;
+			end;
+		if Scroll + GamePrefs^^.Offset div 2 > Info^^.StopAt then
+			begin
+				if DoneCount = 0 then
+					begin
+						DoneCount := 12;
+						PlaySound(1104);
+					end;
+				DoneCount := DoneCount - 1;
+				if DoneCount = 0 then
+					DoneCount := -1;
+			end;
+	end;
+end.

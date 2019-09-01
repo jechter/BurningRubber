@@ -1,1 +1,271 @@
-unit Objects;interface	uses		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools, Animations,		 ToolUtils, Resources;	procedure DoObjects;implementation	procedure DoBonus;		var			BonRect,Ignore: Rect;	begin		if Scroll + 480 >= BonPos then			begin				SetRect(BonRect, BonLR, 480 - (BonPos - Scroll) * 2, BonLR + 24, 480 - (BonPos - Scroll) * 2 + 24);				PlotSprite(1030 + multiBonus, BonRect);				InsetRect(BonRect,-5,-5);				if SectRect(BonRect, CarRect, Ignore) then					begin						BonPos := -1000;						PlaySound(1107);						MultiBonus := MultiBonus * (-1);						AddUpRect(BonRect);					end;			end;	end;	procedure DoObjects;		type			OBJDef = record					icon: Integer;					UD, LR: integer;					Brakes: integer;					Die: integer;					Flags1: Byte;					V, H: integer;					weigth, Crash, Jump, Score: integer;				end;			DefPtr = ^OBJDef;			DefHandle = ^DefPtr;		var			i: integer;			Def: OBJDef;			Recy: Rect;		procedure CrashObjs (var AUD, ALR, BUD, BLR, AMUD, AMLR:integer; AMASS, BMASS: integer; ARec, BRec: Rect);			var BUOLD, BLOLD: integer;		begin			if abs(AUD-BUD) > abs(ALR-BLR)*2 then				begin					if AUD < BUD then						AMUD := AMUD + (ARec.Bottom - BRec.Top)					else						AMUD := AMUD + (BRec.Bottom - ARec.Top)				end			else				begin					if ALR < BLR then						AMLR := AMLR + (ARec.Right - BRec.left)					else						AMLR := AMLR + (ARec.Left - BRec.Right);				end;										BUOLD := BUD;			BLOLD := BLR;			BUD := round(AUD*(AMASS/BMASS));			BLR := round(ALR*(AMASS/BMASS));			AUD := round(BUOLD*(BMASS/AMASS));			ALR := round(BLOLD*(BMASS/AMASS));		end;		procedure PoliceNav;			var ignore:integer;		begin			if (Items^^[i].Scroll < Scroll+GamePrefs^^.offset div 2) and (ItemInfo[i].UD<16) then				ItemInfo[i].UD := ItemInfo[i].UD + 1;			if (Items^^[i].Scroll > Scroll+GamePrefs^^.offset div 2) and (ItemInfo[i].UD>8) then				ItemInfo[i].UD := ItemInfo[i].UD - 3;			if ItemInfo[i].UD < 9 then				ItemInfo[i].UD:=9;			if BitTst(@Def.Flags1, 3) then				begin				ItemInfo[i].LR:=0;				if (Items^^[i].LR < LRPos) and not CheckSect(Items^^[i].Scroll, Items^^[i].LR + 10, 20, ignore) then					ItemInfo[i].LR := ItemInfo[i].UD div 2				else if (Items^^[i].LR > LRPos) and not CheckSect(Items^^[i].Scroll, Items^^[i].LR - 10, 20, ignore) then					ItemInfo[i].LR := -ItemInfo[i].UD div 2;				end			else			begin				if Items^^[i].LR < LRPos then					ItemInfo[i].LR := ItemInfo[i].UD div 2				else 					ItemInfo[i].LR := -ItemInfo[i].UD div 2;			end;		end;		procedure doNvgte;			var				y,Direction: integer;			procedure NavProc;			begin				if CheckSect(Items^^[i].Scroll + y * 4 - (Def.H + 32) div 2, Items^^[i].LR + (Def.V + 32) div 2, 22, Direction) then					begin						if y > 22 then							ItemInfo[i].LR := Direction * abs(Def.UD) div 2						else							ItemInfo[i].LR := Direction * abs(Def.UD);						Exit(DoNvgte);					end			end;		begin			if Def.UD > 0 then				for y := 2 to 25 do					NavProc			else				for y := -2 downto -25 do					NavProc;		end;		procedure CarTouch;			var				ObjRect: Rect;				X,Y:integer;		begin			SetRect(ObjRect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);			if SectRect(ObjRect, CarRect, Recy) and (Jump = 0) and not Dead then				begin					if Def.Brakes <> 0 then						begin							if UDSpeed > (Def.Brakes * MyCar.OffRoad) div 100 then								begin									UDSpeed := (Def.Brakes * MyCar.OffRoad) div 100;									LRSpeed := LRSpeed div 2;								end;						end;					if BitTst(@Def.Flags1, 1) then							begin								Animate(Def.Die, ObjRect);								Items^^[i].Scroll := -1000;								Score := Score + Def.Score;							end;					if BitTst(@Def.Flags1, 0) and not dead then						if (sign(Def.Crash) * UDSpeed > ItemInfo[i].UD + Def.Crash) and (DoneCount=0) then							begin								Animate(MyCar.Crash, CarRect);								Dead := True;							end;					if BitTst(@Def.Flags1, 6) then						begin							MaxJump := (UDSpeed  * def.Jump) div 100;							if MaxJump > 0 then								Jump := 1;						end;					if BitTst(@Def.Flags1, 4) then						begin							X:=LRSpeed;							Y:=UDSpeed;							CrashObjs(ItemInfo[i].UD, ItemInfo[i].LR, Y, X, Items^^[i].Scroll, Items^^[i].LR, Def.weigth, MyCar.Bumping, ObjRect, CarRect);							UDSpeed:=UDSpeed-(UDSpeed-Y) div 4;													LRSpeed:=LRSpeed-(LRSpeed-X) div 4;							PlaySound(1102);						end;				end;		end;		procedure Move;		begin			Items^^[i].LR := Items^^[i].LR + ItemInfo[i].LR;			Items^^[i].Scroll := Items^^[i].Scroll + ItemInfo[i].UD;			if Def.Die = 1 then				PoliceNav			else			begin				if ItemInfo[i].LR > Def.LR then					ItemInfo[i].LR := ItemInfo[i].LR - 1;				if ItemInfo[i].LR < Def.LR then					ItemInfo[i].LR := ItemInfo[i].LR + 1;				if ItemInfo[i].UD > Def.UD then					ItemInfo[i].UD := ItemInfo[i].UD - 1;				if ItemInfo[i].UD < Def.UD then					ItemInfo[i].UD := ItemInfo[i].UD + 1;				if BitTst(@Def.Flags1, 3) then				begin					DoNvGte;				end;			end;								end;		procedure BackCrash;			var 				DeathRect:Rect;				ignore:integer;		begin			if BitTst(@Def.Flags1, 7) then				if CheckSect(Items^^[i].Scroll, Items^^[i].LR, 0, ignore) then					begin						SetRect(DeathRect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);						Animate(Def.Die, DeathRect);						Items^^[i].Scroll := -1000;						Score := Score + Def.Score;					end;		end;		procedure ObjTouch;			var				TestRect, Test2Rect, ignore: rect;				Obj: integer;				CODef: OBJDef;		begin			if BitTst(@Def.Flags1, 4) then				begin					SetRect(Testrect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);					SetRect(Test2rect, 0, 0, 620, 480);					if SectRect(testRect, Test2rect, ignore) then						begin							for Obj := i + 1 to LastObj do								begin									CODef := DefHandle(GetResource('ODEF', Items^^[Obj].ID))^^;									if BitTst(@CODef.Flags1, 4) then										begin											SetRect(Test2rect, Items^^[Obj].LR, -((Items^^[Obj].Scroll * 2 - Scroll * 2) - 480), Items^^[Obj].LR + CODef.V + 32, -((Items^^[Obj].Scroll * 2 - Scroll * 2) - 480) + CODef.H + 32);											if SectRect(testRect, Test2rect, ignore) then												begin													CrashObjs(Iteminfo[i].UD, ItemInfo[i].LR, Iteminfo[Obj].UD, ItemInfo[Obj].LR, Items^^[i].Scroll, Items^^[i].LR, CODef.weigth, Def.weigth, TestRect, Test2Rect);													PlaySound(1108);												end;										end;								end;						end;				end;		end;	begin		if DoneCount>=0 then begin			DoBonus;			if GetHandleSize(Handle(Items)) > 6 * lastobj then				while Items^^[LastObj + 1].Scroll < Scroll + 240 + 15 do					begin						LastObj := LastObj + 1;						ItemInfo[LastObj].UD := 0;						ItemInfo[LastObj].LR := DefHandle(GetResource('ODEF', Items^^[LastObj].ID))^^.LR;					end;			for i := 1 to LastObj do				begin					if (Items^^[i].Scroll * 2 > Scroll * 2 - 200) and (Items^^[i].Scroll * 2 < Scroll * 2 + 700) then						begin							Def := DefHandle(GetResource('ODEF', Items^^[i].ID))^^;							Move;							BackCrash;							ObjTouch;							CarTouch;							SetRect(Recy, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);							PlotSprite(Def.icon, Recy);						end					else if (ItemInfo[i].UD <> 0) then						Items^^[i].Scroll := -1000;				end;			end;	end;end.
+unit Objects;
+interface
+	uses
+		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools, Animations,
+		 ToolUtils, Resources;
+	procedure DoObjects;
+implementation
+	procedure DoBonus;
+		var
+			BonRect,Ignore: Rect;
+	begin
+		if Scroll + 480 >= BonPos then
+			begin
+				SetRect(BonRect, BonLR, 480 - (BonPos - Scroll) * 2, BonLR + 24, 480 - (BonPos - Scroll) * 2 + 24);
+				PlotSprite(1030 + multiBonus, BonRect);
+				InsetRect(BonRect,-5,-5);
+				if SectRect(BonRect, CarRect, Ignore) then
+					begin
+						BonPos := -1000;
+						PlaySound(1107);
+						MultiBonus := MultiBonus * (-1);
+						AddUpRect(BonRect);
+					end;
+			end;
+	end;
+
+
+	procedure DoObjects;
+		type
+			OBJDef = record
+					icon: Integer;
+					UD, LR: integer;
+					Brakes: integer;
+					Die: integer;
+					Flags1: Byte;
+					V, H: integer;
+					weigth, Crash, Jump, Score: integer;
+				end;
+			DefPtr = ^OBJDef;
+			DefHandle = ^DefPtr;
+		var
+			i: integer;
+			Def: OBJDef;
+			Recy: Rect;
+
+
+		procedure CrashObjs (var AUD, ALR, BUD, BLR, AMUD, AMLR:integer; AMASS, BMASS: integer; ARec, BRec: Rect);
+			var BUOLD, BLOLD: integer;
+		begin
+			if abs(AUD-BUD) > abs(ALR-BLR)*2 then
+				begin
+					if AUD < BUD then
+						AMUD := AMUD + (ARec.Bottom - BRec.Top)
+					else
+						AMUD := AMUD + (BRec.Bottom - ARec.Top)
+				end
+			else
+				begin
+					if ALR < BLR then
+						AMLR := AMLR + (ARec.Right - BRec.left)
+					else
+						AMLR := AMLR + (ARec.Left - BRec.Right);
+				end;
+							
+			BUOLD := BUD;
+			BLOLD := BLR;
+
+			BUD := round(AUD*(AMASS/BMASS));
+			BLR := round(ALR*(AMASS/BMASS));
+			AUD := round(BUOLD*(BMASS/AMASS));
+			ALR := round(BLOLD*(BMASS/AMASS));
+		end;
+
+
+		procedure PoliceNav;
+			var ignore:integer;
+		begin
+			if (Items^^[i].Scroll < Scroll+GamePrefs^^.offset div 2) and (ItemInfo[i].UD<16) then
+				ItemInfo[i].UD := ItemInfo[i].UD + 1;
+			if (Items^^[i].Scroll > Scroll+GamePrefs^^.offset div 2) and (ItemInfo[i].UD>8) then
+				ItemInfo[i].UD := ItemInfo[i].UD - 3;
+			if ItemInfo[i].UD < 9 then
+				ItemInfo[i].UD:=9;
+			if BitTst(@Def.Flags1, 3) then
+				begin
+				ItemInfo[i].LR:=0;
+				if (Items^^[i].LR < LRPos) and not CheckSect(Items^^[i].Scroll, Items^^[i].LR + 10, 20, ignore) then
+					ItemInfo[i].LR := ItemInfo[i].UD div 2
+				else if (Items^^[i].LR > LRPos) and not CheckSect(Items^^[i].Scroll, Items^^[i].LR - 10, 20, ignore) then
+					ItemInfo[i].LR := -ItemInfo[i].UD div 2;
+				end
+			else
+			begin
+				if Items^^[i].LR < LRPos then
+					ItemInfo[i].LR := ItemInfo[i].UD div 2
+				else 
+					ItemInfo[i].LR := -ItemInfo[i].UD div 2;
+			end;
+		end;
+
+
+		procedure doNvgte;
+			var
+				y,Direction: integer;
+			procedure NavProc;
+			begin
+				if CheckSect(Items^^[i].Scroll + y * 4 - (Def.H + 32) div 2, Items^^[i].LR + (Def.V + 32) div 2, 22, Direction) then
+					begin
+						if y > 22 then
+							ItemInfo[i].LR := Direction * abs(Def.UD) div 2
+						else
+							ItemInfo[i].LR := Direction * abs(Def.UD);
+						Exit(DoNvgte);
+					end
+			end;
+
+		begin
+			if Def.UD > 0 then
+				for y := 2 to 25 do
+					NavProc
+			else
+				for y := -2 downto -25 do
+					NavProc;
+		end;
+
+
+		procedure CarTouch;
+			var
+				ObjRect: Rect;
+				X,Y:integer;
+		begin
+			SetRect(ObjRect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);
+			if SectRect(ObjRect, CarRect, Recy) and (Jump = 0) and not Dead then
+				begin
+					if Def.Brakes <> 0 then
+						begin
+							if UDSpeed > (Def.Brakes * MyCar.OffRoad) div 100 then
+								begin
+									UDSpeed := (Def.Brakes * MyCar.OffRoad) div 100;
+									LRSpeed := LRSpeed div 2;
+								end;
+						end;
+					if BitTst(@Def.Flags1, 1) then
+							begin
+								Animate(Def.Die, ObjRect);
+								Items^^[i].Scroll := -1000;
+								Score := Score + Def.Score;
+							end;
+					if BitTst(@Def.Flags1, 0) and not dead then
+						if (sign(Def.Crash) * UDSpeed > ItemInfo[i].UD + Def.Crash) and (DoneCount=0) then
+							begin
+								Animate(MyCar.Crash, CarRect);
+								Dead := True;
+							end;
+					if BitTst(@Def.Flags1, 6) then
+						begin
+							MaxJump := (UDSpeed  * def.Jump) div 100;
+							if MaxJump > 0 then
+								Jump := 1;
+						end;
+					if BitTst(@Def.Flags1, 4) then
+						begin
+							X:=LRSpeed;
+							Y:=UDSpeed;
+							CrashObjs(ItemInfo[i].UD, ItemInfo[i].LR, Y, X, Items^^[i].Scroll, Items^^[i].LR, Def.weigth, MyCar.Bumping, ObjRect, CarRect);
+							UDSpeed:=UDSpeed-(UDSpeed-Y) div 4;						
+							LRSpeed:=LRSpeed-(LRSpeed-X) div 4;
+							PlaySound(1102);
+						end;
+				end;
+		end;
+
+		procedure Move;
+		begin
+			Items^^[i].LR := Items^^[i].LR + ItemInfo[i].LR;
+			Items^^[i].Scroll := Items^^[i].Scroll + ItemInfo[i].UD;
+			if Def.Die = 1 then
+				PoliceNav
+			else
+			begin
+				if ItemInfo[i].LR > Def.LR then
+					ItemInfo[i].LR := ItemInfo[i].LR - 1;
+				if ItemInfo[i].LR < Def.LR then
+					ItemInfo[i].LR := ItemInfo[i].LR + 1;
+				if ItemInfo[i].UD > Def.UD then
+					ItemInfo[i].UD := ItemInfo[i].UD - 1;
+				if ItemInfo[i].UD < Def.UD then
+					ItemInfo[i].UD := ItemInfo[i].UD + 1;
+				if BitTst(@Def.Flags1, 3) then
+				begin
+					DoNvGte;
+				end;
+			end;
+			
+			
+		end;
+
+		procedure BackCrash;
+			var 
+				DeathRect:Rect;
+				ignore:integer;
+		begin
+			if BitTst(@Def.Flags1, 7) then
+				if CheckSect(Items^^[i].Scroll, Items^^[i].LR, 0, ignore) then
+					begin
+						SetRect(DeathRect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);
+						Animate(Def.Die, DeathRect);
+						Items^^[i].Scroll := -1000;
+						Score := Score + Def.Score;
+					end;
+		end;
+
+
+		procedure ObjTouch;
+			var
+				TestRect, Test2Rect, ignore: rect;
+				Obj: integer;
+				CODef: OBJDef;
+		begin
+			if BitTst(@Def.Flags1, 4) then
+				begin
+					SetRect(Testrect, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);
+					SetRect(Test2rect, 0, 0, 620, 480);
+					if SectRect(testRect, Test2rect, ignore) then
+						begin
+							for Obj := i + 1 to LastObj do
+								begin
+									CODef := DefHandle(GetResource('ODEF', Items^^[Obj].ID))^^;
+									if BitTst(@CODef.Flags1, 4) then
+										begin
+											SetRect(Test2rect, Items^^[Obj].LR, -((Items^^[Obj].Scroll * 2 - Scroll * 2) - 480), Items^^[Obj].LR + CODef.V + 32, -((Items^^[Obj].Scroll * 2 - Scroll * 2) - 480) + CODef.H + 32);
+											if SectRect(testRect, Test2rect, ignore) then
+												begin
+													CrashObjs(Iteminfo[i].UD, ItemInfo[i].LR, Iteminfo[Obj].UD, ItemInfo[Obj].LR, Items^^[i].Scroll, Items^^[i].LR, CODef.weigth, Def.weigth, TestRect, Test2Rect);
+													PlaySound(1108);
+												end;
+										end;
+								end;
+						end;
+				end;
+		end;
+
+	begin
+		if DoneCount>=0 then begin
+			DoBonus;
+			if GetHandleSize(Handle(Items)) > 6 * lastobj then
+				while Items^^[LastObj + 1].Scroll < Scroll + 240 + 15 do
+					begin
+						LastObj := LastObj + 1;
+						ItemInfo[LastObj].UD := 0;
+						ItemInfo[LastObj].LR := DefHandle(GetResource('ODEF', Items^^[LastObj].ID))^^.LR;
+					end;
+			for i := 1 to LastObj do
+				begin
+					if (Items^^[i].Scroll * 2 > Scroll * 2 - 200) and (Items^^[i].Scroll * 2 < Scroll * 2 + 700) then
+						begin
+							Def := DefHandle(GetResource('ODEF', Items^^[i].ID))^^;
+							Move;
+							BackCrash;
+							ObjTouch;
+							CarTouch;
+							SetRect(Recy, Items^^[i].LR, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480), Items^^[i].LR + Def.V + 32, -((Items^^[i].Scroll * 2 - Scroll * 2) - 480) + Def.H + 32);
+							PlotSprite(Def.icon, Recy);
+						end
+					else if (ItemInfo[i].UD <> 0) then
+						Items^^[i].Scroll := -1000;
+				end;
+			end;
+	end;
+
+end.

@@ -1,1 +1,259 @@
-unit Game;interface	uses		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools, Animations, Car, RoadDraw, Display, Objects,		 ToolUtils, Resources, Dialogs, Events;	procedure DoGame;	procedure BeginGame;	procedure EndGame;	procedure GameUpdate;implementation	procedure DoGame;		var			Timer: longint;			DRECT:Rect;	begin		if GamePlay then			begin				Timer := TickCount;				SetGworld(ScreenWorld, nil);				if LockPixels(GetGworldPixMap(ScreenWorld)) and not GamePause then					begin						DoBackground;						DoObjects;						DoCar;						DoAnimations;						DoControl;						DoDisplay;					end;				if GamePause then					begin						KillEngine;						SetRect(DRECT,320-43,240-21,320+43,240+21);						DrawPicture(GetPicture(2040),DRECT);						URects[15]:=DRECT;					end;				BlitToScreen;				UnlockPixels(GetGWorldPixMap(Screenworld));				while TickCount<Timer+GamePrefs^^.Speed do ;				if GameOCount = 6 then					EndGame;			end;	end;	procedure BeginGame;		var			drawRect: rect;			procedure InitWorlds;		begin			Depth := TheScreen^^.gdPMap^^.PixelSize;			if Depth > 8 then				Depth := 8;			ScreenCT:=GetCTable(1000+Depth);			SetRect(drawRect, 0, 0, 620, 480);			DoError(NewGWorld(Screenworld, Depth, drawRect, ScreenCT, nil, keeplocal));			SetGworld(ScreenWorld, nil);			EraseRect(drawRect);			SetGWorld(CGrafPtr(Shellwindow),Thescreen);			SetRect(drawRect, 0, -44, GamePrefs^^.TextureSize, 480);			if BitTst(@GamePrefs^^.GrafFlags, 3) then				DoError(NewGWorld(Backworld, Depth, drawRect,ScreenCT, nil, keeplocal));			DoError(HandToHand(Handle(ScreenCT)));		end;					procedure FadeBlackWindow;			const				FadeSpeed = 40;			var				i: integer;		begin			for i:= 1 to FadeSpeed do				Screenblood(1,TRUE,TRUE,TRUE);			if BitTst(@GamePrefs^^.GrafFlags, 1) then begin				if Depth<8 then SetCLUT;				RaceWindow := GetNewWindow(1001, nil, Pointer(-1));				MoveWindow(RaceWindow, 0, 0, False);				SizeWindow(RaceWindow, TheScreen^^.gdpmap^^.bounds.right - TheScreen^^.gdpmap^^.bounds.left, TheScreen^^.gdpmap^^.bounds.bottom - TheScreen^^.gdpmap^^.bounds.top, false);				SetPort(RaceWindow);				SetOrigin(-RaceWindow^.portrect.right div 2+310,-RaceWindow^.portrect.bottom div 2+240);				Hidemenubar;				SetCLUT;			end else begin				SetCLUT;				RaceWindow := GetNewWindow(1002, nil, Pointer(-1));			end;		end;		procedure InitInterface;		begin			GamePlay := True;			EnableItem(FileMenu, 2);			EnableItem(FileMenu, 4);			DisableItem(FileMenu, 1);			DisableItem(OptMenu, 1);			DisableItem(OptMenu, 7);			DisposeWindow(ShellWindow);			ShellWindow:= nil;			FadeBlackWindow;		end;		procedure InitMask;			var				X: GWorldPtr;				MyClip, InvRgn: RgnHandle;				DrawingRect:Rect;			function InitMaskWorld: GWorldPtr;				type					RectHandle = ^RectPtr;				var					GWldSize: Rect;					WriteWorld: GworldPtr;			begin				SetRect(GWldSize, 0, 0, 620, 100);				DoError(NewGWorld(WriteWorld, 1, GWldSize, nil, nil, 0) );				if LockPixels(GetGWorldPixMap(WriteWorld)) then					begin						SetGWorld(WriteWorld, nil);						FillRect(GWldSize, qd.white);						SetRect(DrawingRect, 0, 0, 100, 100);						DrawPicture(GetPicture(2000), DrawingRect);						SetRect(DrawingRect, 100, 72, 620, 100);						FillRect(DrawingRect, qd.black);						SetGWorld(CGrafPtr(RaceWindow), TheScreen);						UnlockPixels(GetGWorldPixMap(WriteWorld));						InitMaskWorld := WriteWorld;					end;			end;		begin			X := InitMaskWorld;			MyClip := NewRgn;			InvRgn := NewRgn;			DoError(BitMapToRegion(MyClip, BitMapHandle(GetGWorldPixMap(X))^^));			DisposeGWorld(X);			OffSetRgn(MyClip, 0, 480 - 100);			Rectrgn(InvRgn, RaceWindow^.portRect);			XorRgn(MyClip, InvRgn, MyClip);			Clip:= MyClip;		end;		procedure Drawscreen;		begin			SetPort(RaceWindow);			SetRect(DrawRect, 0, 0, 620, 480);			FillRect(DrawRect, qd.black);			SetRect(DrawRect,310-83,240-21,310+83,240+21);			DrawPicture(GetPicture(2030),DrawRect);			ReleaseResource(GetResource('PICT',2030));			InitMask;			BeginUpdate(RaceWindow);			EndUpdate(RaceWindow);		end;		procedure ReleaseMem;		begin			ReleaseResource(GetResource('PICT',2010));			ReleaseResource(GetResource('PICT',2011));			ReleaseResource(GetResource('PICT',2020));			ReleaseResource(GetResource('PICT',2021));			ReleaseResource(GetResource('PICT',2022));		end;	begin		ReleaseMem;		InitWorlds;		InitInterface;		DrawScreen;		PreLoadSprites;		CarID := 1000;		Score := 0;		Lives := 3;		oldScore:=-1;		oldLives:=-1;		Lastlive:=0;		GameOCount := 0;		GameOver := false;				EnterLevel(Level);		MyCar := CarHandle(GetResource('CAR ', CarID))^^;	end;	procedure EndGame;		function CancelTest: boolean;		begin			CancelTest := false;			if GameOCount = 6 then				CancelTest := true			else if Alert(1003, nil) = 1 then				CancelTest := true			else if BitTst(@GamePrefs^^.GrafFlags,1) then				ReHideMenuBar;		end;	begin		if CancelTest then			begin				ShowCursor;				ShowMenubar;				KillEngine;				if TheScreen^^.gdType = fixedType then					TheScreen^^.gdPMap^^.pmTable^^.ctseed := CTorig;				ShellWindow := GetNewWindow(1000, nil, RaceWindow);				GamePlay := False;				DisposeWindow(RaceWindow);				RaceWindow:=nil;				DisposeGWorld(BackWorld);				DisposeGWorld(ScreenWorld);				DisposeLevel;				EnableItem(FileMenu, 1);				EnableItem(OptMenu, 1);				EnableItem(OptMenu, 7);				DisableItem(FileMenu, 2);				DisableItem(FileMenu, 4);				EnterHighScore(Score);			end;	end;					procedure GameUpdate;	var		InstrRect:Rect;	begin		BeginUpdate(RaceWindow);		SetRect(InstrRect,0,480-100,620,480);		if RectInRgn(InstrRect,RaceWindow^.visRgn) then			DrawInstr;		EndUpdate(RaceWindow);	end;		end.
+unit Game;
+interface
+	uses
+		 Sound, QDOffScreen, Tools, Globals, GameGlobals, GameTools, Animations, Car, RoadDraw, Display, Objects,
+		 ToolUtils, Resources, Dialogs, Events;
+	procedure DoGame;
+	procedure BeginGame;
+	procedure EndGame;
+	procedure GameUpdate;
+
+implementation
+
+	procedure DoGame;
+		var
+			Timer: longint;
+			DRECT:Rect;
+	begin
+		if GamePlay then
+			begin
+				Timer := TickCount;
+				SetGworld(ScreenWorld, nil);
+				if LockPixels(GetGworldPixMap(ScreenWorld)) and not GamePause then
+					begin
+						DoBackground;
+						DoObjects;
+						DoCar;
+						DoAnimations;
+						DoControl;
+						DoDisplay;
+					end;
+				if GamePause then
+					begin
+						KillEngine;
+						SetRect(DRECT,320-43,240-21,320+43,240+21);
+						DrawPicture(GetPicture(2040),DRECT);
+						URects[15]:=DRECT;
+					end;
+				BlitToScreen;
+				UnlockPixels(GetGWorldPixMap(Screenworld));
+				while TickCount<Timer+GamePrefs^^.Speed do ;
+				if GameOCount = 6 then
+					EndGame;
+			end;
+	end;
+
+
+
+	procedure BeginGame;
+		var
+			drawRect: rect;
+	
+		procedure InitWorlds;
+		begin
+			Depth := TheScreen^^.gdPMap^^.PixelSize;
+			if Depth > 8 then
+				Depth := 8;
+			ScreenCT:=GetCTable(1000+Depth);
+			SetRect(drawRect, 0, 0, 620, 480);
+			DoError(NewGWorld(Screenworld, Depth, drawRect, ScreenCT, nil, keeplocal));
+			SetGworld(ScreenWorld, nil);
+			EraseRect(drawRect);
+			SetGWorld(CGrafPtr(Shellwindow),Thescreen);
+
+			SetRect(drawRect, 0, -44, GamePrefs^^.TextureSize, 480);
+			if BitTst(@GamePrefs^^.GrafFlags, 3) then
+				DoError(NewGWorld(Backworld, Depth, drawRect,ScreenCT, nil, keeplocal));
+			DoError(HandToHand(Handle(ScreenCT)));
+		end;
+	
+	
+	
+		procedure FadeBlackWindow;
+			const
+				FadeSpeed = 40;
+			var
+				i: integer;
+		begin
+			for i:= 1 to FadeSpeed do
+				Screenblood(1,TRUE,TRUE,TRUE);
+			if BitTst(@GamePrefs^^.GrafFlags, 1) then begin
+				if Depth<8 then SetCLUT;
+				RaceWindow := GetNewWindow(1001, nil, Pointer(-1));
+				MoveWindow(RaceWindow, 0, 0, False);
+				SizeWindow(RaceWindow, TheScreen^^.gdpmap^^.bounds.right - TheScreen^^.gdpmap^^.bounds.left, TheScreen^^.gdpmap^^.bounds.bottom - TheScreen^^.gdpmap^^.bounds.top, false);
+				SetPort(RaceWindow);
+				SetOrigin(-RaceWindow^.portrect.right div 2+310,-RaceWindow^.portrect.bottom div 2+240);
+				Hidemenubar;
+				SetCLUT;
+			end else begin
+				SetCLUT;
+				RaceWindow := GetNewWindow(1002, nil, Pointer(-1));
+			end;
+		end;
+
+		procedure InitInterface;
+		begin
+			GamePlay := True;
+			EnableItem(FileMenu, 2);
+			EnableItem(FileMenu, 4);
+			DisableItem(FileMenu, 1);
+			DisableItem(OptMenu, 1);
+			DisableItem(OptMenu, 7);
+			DisposeWindow(ShellWindow);
+			ShellWindow:= nil;
+
+			FadeBlackWindow;
+		end;
+
+
+
+
+
+
+		procedure InitMask;
+			var
+				X: GWorldPtr;
+				MyClip, InvRgn: RgnHandle;
+				DrawingRect:Rect;
+			function InitMaskWorld: GWorldPtr;
+				type
+					RectHandle = ^RectPtr;
+				var
+					GWldSize: Rect;
+					WriteWorld: GworldPtr;
+			begin
+				SetRect(GWldSize, 0, 0, 620, 100);
+				DoError(NewGWorld(WriteWorld, 1, GWldSize, nil, nil, 0) );
+				if LockPixels(GetGWorldPixMap(WriteWorld)) then
+					begin
+						SetGWorld(WriteWorld, nil);
+						FillRect(GWldSize, qd.white);
+						SetRect(DrawingRect, 0, 0, 100, 100);
+						DrawPicture(GetPicture(2000), DrawingRect);
+						SetRect(DrawingRect, 100, 72, 620, 100);
+						FillRect(DrawingRect, qd.black);
+						SetGWorld(CGrafPtr(RaceWindow), TheScreen);
+						UnlockPixels(GetGWorldPixMap(WriteWorld));
+						InitMaskWorld := WriteWorld;
+					end;
+			end;
+		begin
+
+			X := InitMaskWorld;
+			MyClip := NewRgn;
+			InvRgn := NewRgn;
+			DoError(BitMapToRegion(MyClip, BitMapHandle(GetGWorldPixMap(X))^^));
+			DisposeGWorld(X);
+			OffSetRgn(MyClip, 0, 480 - 100);
+			Rectrgn(InvRgn, RaceWindow^.portRect);
+			XorRgn(MyClip, InvRgn, MyClip);
+			Clip:= MyClip;
+		end;
+
+		procedure Drawscreen;
+		begin
+			SetPort(RaceWindow);
+			SetRect(DrawRect, 0, 0, 620, 480);
+			FillRect(DrawRect, qd.black);
+			SetRect(DrawRect,310-83,240-21,310+83,240+21);
+			DrawPicture(GetPicture(2030),DrawRect);
+			ReleaseResource(GetResource('PICT',2030));
+			InitMask;
+			BeginUpdate(RaceWindow);
+			EndUpdate(RaceWindow);
+		end;
+
+		procedure ReleaseMem;
+		begin
+			ReleaseResource(GetResource('PICT',2010));
+			ReleaseResource(GetResource('PICT',2011));
+			ReleaseResource(GetResource('PICT',2020));
+			ReleaseResource(GetResource('PICT',2021));
+			ReleaseResource(GetResource('PICT',2022));
+		end;
+
+
+
+	begin
+		ReleaseMem;
+		InitWorlds;
+		InitInterface;
+		DrawScreen;
+		PreLoadSprites;
+
+		CarID := 1000;
+
+		Score := 0;
+		Lives := 3;
+		oldScore:=-1;
+		oldLives:=-1;
+		Lastlive:=0;
+
+		GameOCount := 0;
+		GameOver := false;
+		
+		EnterLevel(Level);
+
+		MyCar := CarHandle(GetResource('CAR ', CarID))^^;
+	end;
+
+
+
+
+	procedure EndGame;
+		function CancelTest: boolean;
+		begin
+			CancelTest := false;
+			if GameOCount = 6 then
+				CancelTest := true
+			else if Alert(1003, nil) = 1 then
+				CancelTest := true
+			else if BitTst(@GamePrefs^^.GrafFlags,1) then
+				ReHideMenuBar;
+		end;
+	begin
+		if CancelTest then
+			begin
+				ShowCursor;
+				ShowMenubar;
+				KillEngine;
+				if TheScreen^^.gdType = fixedType then
+					TheScreen^^.gdPMap^^.pmTable^^.ctseed := CTorig;
+
+				ShellWindow := GetNewWindow(1000, nil, RaceWindow);
+				GamePlay := False;
+
+
+				DisposeWindow(RaceWindow);
+				RaceWindow:=nil;
+				DisposeGWorld(BackWorld);
+				DisposeGWorld(ScreenWorld);
+				DisposeLevel;
+
+				EnableItem(FileMenu, 1);
+				EnableItem(OptMenu, 1);
+				EnableItem(OptMenu, 7);
+				DisableItem(FileMenu, 2);
+				DisableItem(FileMenu, 4);
+
+				EnterHighScore(Score);
+			end;
+	end;
+	
+	
+	
+	
+	procedure GameUpdate;
+	var
+		InstrRect:Rect;
+	begin
+		BeginUpdate(RaceWindow);
+		SetRect(InstrRect,0,480-100,620,480);
+		if RectInRgn(InstrRect,RaceWindow^.visRgn) then
+			DrawInstr;
+		EndUpdate(RaceWindow);
+	end;
+	
+	
+end.
